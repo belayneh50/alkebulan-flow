@@ -53,7 +53,7 @@ Checkboxes are marked complete only after implementation and verification.
 - [x] Initialize Next.js, TypeScript, Tailwind, Git, and dependency lockfile
 - [x] Establish Alkebulan visual tokens and product positioning
 - [x] Create the authoritative README roadmap
-- [ ] Commit the initial staged history
+- [x] Commit the initial staged history
 
 ### 2. Design system and demo experience
 
@@ -139,6 +139,7 @@ Checkboxes are marked complete only after implementation and verification.
 - `npm run build` — passed; `/`, `/login`, and `/api/ai/brief` generated successfully
 - Browser — desktop dashboard and 390×844 mobile layout rendered without console warnings/errors
 - End-to-end — created a task, observed the task count update, called `POST /api/ai/brief`, and rendered summary, risks, next actions, and client update
+- Git — initial verified MVP checkpoint created as `172922b`
 
 ## AI behavior
 
