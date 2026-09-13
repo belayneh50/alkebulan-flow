@@ -1,2 +1,3 @@
-import { DashboardApp } from "@/components/dashboard-app";
-export default function Home(){return <DashboardApp/>}
+import { redirect } from "next/navigation";
+import { currentSession } from "@/lib/auth/session";
+export default async function Home(){redirect((await currentSession())?"/app":"/login")}
