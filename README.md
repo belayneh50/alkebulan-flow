@@ -6,7 +6,7 @@ Alkebulan Flow is a portfolio-grade operations workspace for small agencies, con
 
 ## Current status
 
-Stages 1–2 and the credential-free Stage 3–4 portfolio demo are complete and verified locally. Production persistence and third-party identity remain deliberately pending so the demo runs without credentials while clearly distinguishing prototype behavior from production security.
+The local core MVP is implemented and verified: relational SQLite persistence, secure credential auth, workspace roles, server-backed task workflows, validated client/project APIs, safe local uploads, and optional Gemini generation with deterministic fallback. Production PostgreSQL, hosted reset email, and object storage remain deployment-stage replacements.
 
 ## Quick start
 
@@ -15,7 +15,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`. The dashboard opens directly for frictionless portfolio review. Visit `/login` to view the demo authentication and password-reset experience.
+Open `http://localhost:3000`. Protected routes redirect to `/login`; use the seeded demo account below.
 
 ```text
 Demo workspace: demo@alkebulan.local
@@ -28,19 +28,22 @@ These are fictional local-only demo credentials, not contact information or prod
 
 ```mermaid
 flowchart LR
-  UI[Next.js App Router UI] --> State[Typed demo state]
-  UI --> API[Route Handlers]
+  UI[Next.js App Router UI] --> API[Validated Route Handlers]
+  API --> Auth[Opaque HTTP-only sessions]
+  API --> DB[(Local SQLite)]
+  API --> Files[Validated local uploads]
   API --> Fallback[Deterministic AI fallback]
-  API -. optional .-> Gateway[Vercel AI Gateway]
-  UI -. production .-> Auth[Identity provider]
-  API -. production .-> DB[(PostgreSQL)]
+  API -. optional key .-> Gemini[Google Gemini]
+  DB -. production migration .-> PG[(PostgreSQL)]
 ```
 
 - Next.js 16 App Router, React 19, TypeScript
 - Tailwind CSS 4 with owned shadcn-style primitives and Radix foundations
 - Recharts for responsive analytics
 - Zod contracts for structured AI output
-- Vercel AI SDK installed for the credential-backed integration stage
+- Vercel AI SDK with optional Google Gemini provider
+- Better SQLite3 with normalized relational schema and foreign keys
+- Node scrypt password hashing and opaque database-backed sessions
 - Vitest for deterministic logic tests
 
 ## Roadmap and progress ledger
@@ -68,28 +71,31 @@ Checkboxes are marked complete only after implementation and verification.
 
 - [x] Typed client, project, task, activity, priority, status, and role models
 - [x] Seeded demo clients, projects, tasks, and activity
-- [x] Login and password-reset demonstration screens
-- [x] Owner/Admin/Team role concept represented in the experience
+- [x] Secure sign-up, login, logout, and protected routes
+- [x] Scrypt password hashing and revocable opaque sessions
+- [x] Safe development password reset with one-time expiring tokens
+- [x] Owner/Admin/Team roles with server-side authorization
 - [x] Client portfolio and project progress views
 - [x] Interactive Kanban board with cross-column task movement
 - [x] New-task workflow with validation
-- [ ] Persistent PostgreSQL/Supabase data adapter
-- [ ] Production sign-up, sign-in, secure sessions, and password reset
-- [ ] Enforced server-side role permissions
-- [ ] Persistent client/project CRUD route handlers
+- [x] Credential-free relational SQLite adapter and automatic seed
+- [x] Persistent client/project/task CRUD route handlers
+- [ ] Production PostgreSQL migration and hosted reset-email delivery
 
 ### 4. Operations and AI
 
 - [x] KPI cards, project-health signals, and responsive revenue chart
 - [x] Deadline visibility and unified activity feed
-- [x] File library and local file-picker interaction
+- [x] File library and validated local upload handling
 - [x] Notification popover and attention signals
 - [x] Structured AI project brief contract
 - [x] Project summaries, risks, next actions, and client-update drafting
+- [x] Floating Flow AI chatbot available from every page
 - [x] Deterministic no-key AI fallback served from a route handler
-- [ ] Optional credential-backed AI Gateway generation
-- [ ] Durable object/file storage with size and type enforcement
-- [ ] Persistent notification state
+- [x] Optional credential-backed Gemini structured generation
+- [x] Local file metadata persistence with size/type enforcement
+- [ ] Production durable object storage and content-signature scanning
+- [x] Persistent notification read state
 
 ### 5. Quality and release confidence
 
@@ -99,8 +105,9 @@ Checkboxes are marked complete only after implementation and verification.
 - [x] Production build passing
 - [x] Browser smoke test: dashboard, views, task creation, Kanban, AI brief
 - [x] Responsive verification at mobile and desktop widths
-- [ ] Automated accessibility scan and keyboard-flow review
-- [ ] Security review for auth, uploads, authorization, and AI inputs
+- [ ] Automated accessibility scan
+- [x] Keyboard-flow review
+- [x] Local security review for auth, uploads, authorization, and AI inputs
 
 ### 6. Portfolio and deployment package
 
@@ -131,23 +138,80 @@ Checkboxes are marked complete only after implementation and verification.
 | `npm test` | Run deterministic unit tests |
 | `npm run build` | Create a production build |
 
-## Latest verification — 2026-09-13
+## Local data, migration, and seed
+
+The first server request creates `data/alkebulan-flow.sqlite`, applies the idempotent schema, and inserts the fictional demo workspace. Runtime data and file bytes are gitignored. To reset locally, stop the server and remove the SQLite file and `data/uploads` directory, then restart. This intentionally destructive reset is never run automatically.
+
+The schema covers users, workspaces, memberships, clients, projects, tasks, activities, notifications, uploaded-file metadata, sessions, and one-time reset tokens. For PostgreSQL, preserve UUID identifiers, convert timestamps to `timestamptz`, retain foreign keys/check constraints, and replace synchronous SQLite transactions with the selected PostgreSQL adapter.
+
+## Authentication and roles
+
+- Passwords use Node `scrypt` with a unique 128-bit salt.
+- Sessions are 256-bit opaque tokens; only SHA-256 token hashes are stored.
+- Cookies are HTTP-only, `SameSite=Strict`, path-scoped, and secure in production.
+- Mutation routes check same-origin requests and validate payloads with Zod.
+- Owner: full workspace, deletion, and membership management.
+- Admin: client/project/task management without owner-only destructive controls.
+- Team: workspace read access and task management only.
+- Reset requests do not reveal account existence. Development tokens appear only outside production, expire after 15 minutes, are single-use, and revoke existing sessions after a password change.
+
+## Optional Gemini configuration
+
+Copy `.env.example` to `.env.local` and set `GOOGLE_GENERATIVE_AI_API_KEY` locally. Never commit the key. With no key—or if Gemini fails—the validated deterministic brief is returned. No external AI call is required for development or tests.
+
+## Continuation manual
+
+### What is implemented
+
+- A global bottom-right Flow AI widget appears on login and protected workspace pages.
+- Anonymous users receive local demo guidance; workspace questions require authentication.
+- The client keeps at most 12 displayed messages and sends at most 8 recent messages to the server.
+- `POST /api/ai/chat` validates messages, rate-limits each signed-in user, injects concise project/task context server-side, and caps the Gemini instruction at short operations-focused replies.
+- The Gemini key is read only on the server. The browser bundle and API response never contain it.
+- Missing or failed Gemini requests return a deterministic workspace-priority answer.
+
+### Configure and run safely
+
+1. Copy `.env.example` to `.env.local`.
+2. Put the Gemini key after `GOOGLE_GENERATIVE_AI_API_KEY=` in `.env.local` only.
+3. Keep `.env.local` ignored and verify with `git check-ignore .env.local`.
+4. Run `npm run dev`, sign in, and open the round Flow AI button at the bottom right.
+5. For a no-network fallback check, temporarily leave the key blank, restart the server, and ask “What needs attention?”
+6. Run `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build` before committing.
+
+### Known limitations
+
+- Chat history is intentionally in-memory in the current browser tab and is not persisted.
+- The fallback is deterministic and prioritizes high-priority open tasks; it is not a general language model.
+- Local rate limiting is per process; hosted multi-instance deployment needs a distributed limiter.
+- SQLite and local uploads are for a single local instance, not Vercel serverless storage.
+- Gemini is optional and its free-tier availability, model access, and quotas depend on the user’s Google account.
+
+### Recommended next steps
+
+1. Add production PostgreSQL and object-storage adapters behind the current repository interfaces.
+2. Add hosted reset-email delivery and distributed rate limiting.
+3. Add an automated accessibility scan, then capture the five portfolio screenshots listed in `docs/PORTFOLIO.md`.
+4. Deploy only after replacing local persistence and reviewing environment variables in the hosting dashboard.
+5. Consider stretch work—realtime, billing, exports, audit log, and dark mode—only after the hosted core passes the same gates.
+
+## Latest verification — 2026-09-14
 
 - `npm run lint` — passed with 0 errors and 0 warnings
 - `npm run typecheck` — passed
-- `npm test` — 1 file, 3 tests passed
-- `npm run build` — passed; `/`, `/login`, and `/api/ai/brief` generated successfully
-- Browser — desktop dashboard and 390×844 mobile layout rendered without console warnings/errors
-- End-to-end — created a task, observed the task count update, called `POST /api/ai/brief`, and rendered summary, risks, next actions, and client update
-- Git — initial verified MVP checkpoint created as `172922b`
+- `npm test` — 5 files, 20 tests passed, covering auth, role enforcement, client/project/task CRUD, AI protection, uploads, and persistence
+- `npm run build` — passed; 18 application/API routes generated successfully
+- Browser — desktop and 390×844 protected layouts rendered without console warnings/errors; the floating chat remained available on both `/app` and `/login`
+- End-to-end — authenticated, confirmed persisted operations data, received the offline workspace-priority chat response, logged out, and confirmed the global chat entry point remained visible
+- Security — the final secret audit confirmed the key is present only in ignored `.env.local`, absent from tracked files, and absent from Git history
 
 ## AI behavior
 
-`POST /api/ai/brief` returns a Zod-compatible project brief containing a summary, risk list, next actions, and a client-update draft. It currently uses a deterministic fallback so the app is useful offline and in portfolio review environments. A future credential-backed branch will use the Vercel AI SDK with structured output and fall back to the same contract if generation is unavailable.
+`POST /api/ai/brief` returns a Zod-compatible summary, risk list, next actions, and client-update draft. If `GOOGLE_GENERATIVE_AI_API_KEY` is configured, the Vercel AI SDK requests structured output from Gemini. Otherwise—or on provider failure—the route returns the local deterministic fallback contract.
 
 ## Deployment notes
 
-The interface can be deployed to Vercel today as a stateless demo. Before production use, connect PostgreSQL or Supabase, add a supported identity provider, enforce roles server-side, configure durable object storage, add rate limiting, and set the AI Gateway key. No paid service or deployment has been created by this project.
+SQLite and local uploads are intended for a single-instance local demo, not serverless persistence. Before production use, connect PostgreSQL, replace local file writes with object storage, add distributed rate limiting, configure reset-email delivery, and set the Gemini key only if desired. No paid service, external AI call, or deployment has been created.
 
 ## Privacy
 
