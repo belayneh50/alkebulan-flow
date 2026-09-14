@@ -15,7 +15,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`. Protected routes redirect to `/login`; use the seeded demo account below.
+Open `http://localhost:3000`. Protected routes redirect to `/login`; use the seeded demo account below. If port 3000 is taken, Next.js picks the next free port—the live URL is printed in the server log.
 
 ```text
 Demo workspace: demo@alkebulan.local
@@ -63,6 +63,8 @@ Checkboxes are marked complete only after implementation and verification.
 - [x] Responsive navigation shell with mobile drawer
 - [x] Dashboard information architecture and branded workspace chrome
 - [x] Reusable Button, Card, Badge, Input, and avatar patterns
+- [x] Light and dark color themes with toggles on the login page and in the dashboard header
+- [x] Workspace search over projects, clients, tasks, and files with a navigable results dropdown
 - [x] Accessible labels, focus states, and semantic navigation
 - [x] Contact-free demo mode indicator and fictional account
 - [x] Verify representative desktop and mobile layouts in a browser
@@ -95,7 +97,8 @@ Checkboxes are marked complete only after implementation and verification.
 - [x] Optional credential-backed Gemini structured generation
 - [x] Local file metadata persistence with size/type enforcement
 - [ ] Production durable object storage and content-signature scanning
-- [x] Persistent notification read state
+- [x] Persistent notification read state with outside-click dismissal
+- [x] Dark-mode readability sweep: theme-aware badges, links, avatars, and charts in both modes
 
 ### 5. Quality and release confidence
 
@@ -126,7 +129,7 @@ Checkboxes are marked complete only after implementation and verification.
 - [ ] Email delivery
 - [ ] PDF/CSV export
 - [ ] Audit log
-- [ ] Dark mode
+- [x] Dark mode with a header toggle, system-preference detection, localStorage persistence, and a no-flash init script
 
 ## Commands
 
@@ -137,6 +140,14 @@ Checkboxes are marked complete only after implementation and verification.
 | `npm run typecheck` | Run TypeScript without emitting files |
 | `npm test` | Run deterministic unit tests |
 | `npm run build` | Create a production build |
+
+## Theming
+
+The interface ships in light and dark. On first visit the theme follows the operating system (`prefers-color-scheme`); the sun/moon toggle overrides it—top right on the login page, in the dashboard header—and the choice persists in `localStorage` under `alkebulan-theme`. A tiny inline script in `src/app/layout.tsx` applies the class before hydration, so there is no flash of the wrong theme; `<html>` carries `suppressHydrationWarning` because that intentional pre-hydration mutation otherwise trips React's hydration check. All components read semantic tokens (`--background`, `--card`, `--muted`, `--primary`, …) defined in `src/app/globals.css`, including chart colors (`--chart-line`, `--chart-fill`) so the revenue chart flips with the theme; status badges, nav states, and avatars use explicit dark variants. Dark mode also sets `color-scheme: dark` so native controls and scrollbars match. Both modes were contrast-checked against WCAG AA/AAA with computed-style measurements.
+
+## Workspace search
+
+The header search indexes live workspace data—projects (by name), clients (by company and industry), tasks (by title), and uploaded files. Results appear in a dropdown capped at eight entries with kind badges and context, a result count or a no-match line, and are ranked in project, client, task, file order. Picking a result switches to the matching view and clears the query; Escape clears, clicking outside closes. Search reflects what currently exists—the activity feed shows historical events for tasks that may have been deleted, so it is not a search source.
 
 ## Local data, migration, and seed
 
@@ -157,7 +168,9 @@ The schema covers users, workspaces, memberships, clients, projects, tasks, acti
 
 ## Optional Gemini configuration
 
-Copy `.env.example` to `.env.local` and set `GOOGLE_GENERATIVE_AI_API_KEY` locally. Never commit the key. With no key—or if Gemini fails—the validated deterministic brief is returned. No external AI call is required for development or tests.
+Copy `.env.example` to `.env.local` and set `GOOGLE_GENERATIVE_AI_API_KEY` locally. Never commit the key. With no key—or if Gemini fails—the validated deterministic brief is returned, and the failure reason is logged server-side. No external AI call is required for development or tests.
+
+The default model is `gemini-3.6-flash`, overridable with `GEMINI_MODEL` in `.env.local`. Earlier flash models are retired for new Google AI Studio accounts, so an outdated model name silently degrades every request to the fallback; if replies feel canned, check the server log for `[ai/chat]` errors and confirm the model is one your key can use.
 
 ## Continuation manual
 
@@ -193,17 +206,28 @@ Copy `.env.example` to `.env.local` and set `GOOGLE_GENERATIVE_AI_API_KEY` local
 2. Add hosted reset-email delivery and distributed rate limiting.
 3. Add an automated accessibility scan, then capture the five portfolio screenshots listed in `docs/PORTFOLIO.md`.
 4. Deploy only after replacing local persistence and reviewing environment variables in the hosting dashboard.
-5. Consider stretch work—realtime, billing, exports, audit log, and dark mode—only after the hosted core passes the same gates.
+5. Consider remaining stretch work—realtime, billing, exports, and audit log—only after the hosted core passes the same gates. Dark mode is already shipped.
 
 ## Latest verification — 2026-09-14
 
 - `npm run lint` — passed with 0 errors and 0 warnings
 - `npm run typecheck` — passed
 - `npm test` — 5 files, 20 tests passed, covering auth, role enforcement, client/project/task CRUD, AI protection, uploads, and persistence
-- `npm run build` — passed; 18 application/API routes generated successfully
+- `npm run build` — passed; 19 application/API routes generated successfully
 - Browser — desktop and 390×844 protected layouts rendered without console warnings/errors; the floating chat remained available on both `/app` and `/login`
 - End-to-end — authenticated, confirmed persisted operations data, received the offline workspace-priority chat response, logged out, and confirmed the global chat entry point remained visible
 - Security — the final secret audit confirmed the key is present only in ignored `.env.local`, absent from tracked files, and absent from Git history
+
+## Session additions — 2026-09-14 (post-MVP)
+
+- **Gemini repair** — the configured `gemini-2.5-flash` model was retired for new Google AI Studio keys, so every request failed silently into the deterministic fallback; default moved to `gemini-3.6-flash`, fallback catches now log the provider error server-side, and live Gemini replies were verified end-to-end in the browser
+- **Workspace search** — header search previously rendered a decorative input with no handlers; it now searches projects, clients, tasks, and files with a navigable dropdown, verified across hit, navigation, and no-match cases
+- **Notifications** — added outside-click dismissal; read-state persistence via `PATCH /api/notifications` and SQLite `read_at` re-verified across reload
+- **Dark mode** — new: theme toggles on login and dashboard, `prefers-color-scheme` default, persisted choice, no-flash init script, `suppressHydrationWarning` to keep hydration clean, theme-aware chart tokens, and a full dark-readability sweep (inputs, badges, links, avatars, nav, promo cards) with measured contrast of 7.1:1+ in light and 9.8:1+ in dark on primary actions
+- **Completed interaction audit** — New client now posts through the API; client menus provide Edit/Delete; task cards open a full editor with status, priority, assignee, and due-date controls; images/PDFs preview in-app while every uploaded file exposes Download and confirmed Delete
+- **Activity integrity** — client create/update/delete, task create/update/delete, and file upload/delete are persisted with the signed-in actor and reflected immediately in the Activity view
+- **File retrieval security** — authenticated workspace-scoped file serving uses exact stored metadata, inline preview only for images/PDFs, attachment delivery for other types, no-sniff headers, and owner/admin deletion
+- **Quality gates re-run after all changes** — lint clean, typecheck clean, 20/20 tests passing, production build passing
 
 ## AI behavior
 
