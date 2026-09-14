@@ -15,11 +15,20 @@ Alkebulan Flow helps small service businesses turn scattered client work into on
 
 ## Screenshot list
 
-- Desktop overview at 1440×900
-- Mobile overview at 390×844
-- Kanban board with all four workflow columns
-- Flow AI brief showing structured risks and next actions
-- Login screen showing fictional demo access
+Use this order for the Upwork gallery:
+
+1. Desktop overview with KPI cards, revenue chart, project health, and activity.
+2. Kanban board with the full task editor open, including assignee and status controls.
+3. Client portfolio with the accessible Edit/Delete action menu visible.
+4. Files view with an uploaded image rendered in the in-app preview modal and Download available.
+5. Flow AI panel with project selection and the Generate project brief action.
+6. Branded desktop login, followed by the verified 390×844 mobile login when an extra image is allowed.
+
+The final Codex browser-verification task contains these captures. They use fictional `.local` demo data and expose no real email address, contact detail, or API secret.
+
+## Upwork case study
+
+The ready-to-paste title, short description, role, five deliverables, problem/solution narrative, architecture, verification, and screenshot captions are in [`UPWORK_CASE_STUDY.md`](UPWORK_CASE_STUDY.md).
 
 ## Case-study talking points
 

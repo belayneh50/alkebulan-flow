@@ -114,9 +114,10 @@ Checkboxes are marked complete only after implementation and verification.
 
 ### 6. Portfolio and deployment package
 
-- [ ] Contact-free polished screenshots
+- [x] Contact-free polished screenshots captured at verified desktop and mobile sizes
 - [x] Short walkthrough script and recording plan
 - [x] Architecture diagram
+- [x] Upwork-ready case study with role, deliverables, architecture, verification, and screenshot order
 - [x] Setup, test, and implementation documentation
 - [x] Environment-variable template
 - [x] Vercel deployment instructions and production data checklist
@@ -204,7 +205,7 @@ The default model is `gemini-3.6-flash`, overridable with `GEMINI_MODEL` in `.en
 
 1. Add production PostgreSQL and object-storage adapters behind the current repository interfaces.
 2. Add hosted reset-email delivery and distributed rate limiting.
-3. Add an automated accessibility scan, then capture the five portfolio screenshots listed in `docs/PORTFOLIO.md`.
+3. Add an automated accessibility scan before a public production launch; the portfolio screenshot set is already captured and ordered in `docs/PORTFOLIO.md`.
 4. Deploy only after replacing local persistence and reviewing environment variables in the hosting dashboard.
 5. Consider remaining stretch work—realtime, billing, exports, and audit log—only after the hosted core passes the same gates. Dark mode is already shipped.
 
@@ -217,6 +218,12 @@ The default model is `gemini-3.6-flash`, overridable with `GEMINI_MODEL` in `.en
 - Browser — desktop and 390×844 protected layouts rendered without console warnings/errors; the floating chat remained available on both `/app` and `/login`
 - End-to-end — authenticated, confirmed persisted operations data, received the offline workspace-priority chat response, logged out, and confirmed the global chat entry point remained visible
 - Security — the final secret audit confirmed the key is present only in ignored `.env.local`, absent from tracked files, and absent from Git history
+
+## Portfolio proof pack
+
+- [`docs/UPWORK_CASE_STUDY.md`](docs/UPWORK_CASE_STUDY.md) — concise Upwork description, role, five deliverables, problem/solution narrative, architecture, verification evidence, and final screenshot order
+- [`docs/PORTFOLIO.md`](docs/PORTFOLIO.md) — 60–90 second walkthrough, capture manifest, talking points, and deployment checklist
+- Final verified captures: desktop overview, task editor/Kanban, client actions, in-app file preview, Flow AI, and branded desktop/mobile login. These were captured as artifacts in the final Codex task and contain only fictional demo data.
 
 ## Session additions — 2026-09-14 (post-MVP)
 
