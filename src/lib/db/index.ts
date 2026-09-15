@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { schemaSql } from "./schema";
 import { hashPassword } from "@/lib/auth/password";
+import { createPostgresRuntime, wrapSqlite, type RuntimeDatabase } from "./runtime";
 
 export type AppDatabase=Database.Database;
 const defaultPath=join(process.cwd(),"data","alkebulan-flow.sqlite");
@@ -28,8 +29,15 @@ export function createDatabase(path=process.env.ALKEBULAN_DB_PATH||defaultPath){
  if(path!==":memory:")mkdirSync(dirname(path),{recursive:true});
  const db=new Database(path); db.pragma("journal_mode = WAL"); db.exec(schemaSql); migrateTaskDueDates(db); return db;
 }
-let singleton:AppDatabase|undefined;
-export function getDatabase(){singleton??=createDatabase();seedDatabase(singleton);return singleton}
+let singleton:Promise<RuntimeDatabase>|undefined;
+export function getDatabase(){
+ singleton??=process.env.DATABASE_URL
+  ? createPostgresRuntime(process.env.DATABASE_URL)
+  : Promise.resolve((()=>{const db=createDatabase();seedDatabase(db);return wrapSqlite(db)})());
+ return singleton;
+}
+
+export { wrapSqlite, type RuntimeDatabase } from "./runtime";
 
 export function seedDatabase(db:AppDatabase){
  if((db.prepare("SELECT COUNT(*) count FROM users").get() as {count:number}).count)return;

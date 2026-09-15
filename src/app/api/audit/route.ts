@@ -6,7 +6,7 @@ const KINDS = ["task", "file", "project", "message"] as const;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function GET(request: NextRequest) {
-  const auth = requireRequestSession(request, ["owner", "admin"]);
+  const auth = await requireRequestSession(request, ["owner", "admin"]);
   if ("error" in auth) return auth.error;
   const { searchParams } = new URL(request.url);
   const actor = (searchParams.get("actor") ?? "").trim().toLowerCase();
@@ -23,8 +23,7 @@ export async function GET(request: NextRequest) {
   if (ISO_DATE.test(from)) { where.push("date(created_at)>=?"); args.push(from); }
   if (ISO_DATE.test(to)) { where.push("date(created_at)<=?"); args.push(to); }
 
-  const rows = getDatabase()
-    .prepare(`SELECT id,actor,action,target,kind,created_at createdAt FROM activities WHERE ${where.join(" AND ")} ORDER BY created_at DESC LIMIT 200`)
-    .all(...args);
+  const db = await getDatabase();
+  const rows = await db.prepare(`SELECT id,actor,action,target,kind,created_at createdAt FROM activities WHERE ${where.join(" AND ")} ORDER BY created_at DESC LIMIT 200`).all(...args);
   return Response.json(rows);
 }

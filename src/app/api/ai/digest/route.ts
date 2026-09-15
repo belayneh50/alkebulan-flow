@@ -7,10 +7,10 @@ import { buildDigestContext, createDigestFallback, digestSchema } from "@/lib/ai
 
 export async function POST(request: NextRequest) {
   if (!sameOrigin(request)) return Response.json({ error: "Invalid origin" }, { status: 403 });
-  const auth = requireRequestSession(request);
+  const auth = await requireRequestSession(request);
   if ("error" in auth) return auth.error;
 
-  const data = getWorkspaceSnapshot(auth.session.workspaceId);
+  const data = await getWorkspaceSnapshot(auth.session.workspaceId);
   const fallback = createDigestFallback(data);
   const key = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!key) return Response.json({ ...fallback, provider: "fallback" });
@@ -36,11 +36,13 @@ export async function POST(request: NextRequest) {
 type ProjectRow = { id: string; name: string; status: string; progress: number; due: string; clientId: string };
 type TaskRow = { id: string; title: string; projectId: string; status: string; priority: string; due: string };
 
-function getWorkspaceSnapshot(workspaceId: string) {
-  const db = getDatabase();
-  const projects = db.prepare("SELECT id,name,status,progress,due,client_id clientId FROM projects WHERE workspace_id=?").all(workspaceId) as ProjectRow[];
-  const clients = db.prepare("SELECT id,company FROM clients WHERE workspace_id=?").all(workspaceId) as Array<{ id: string; company: string }>;
-  const tasks = db.prepare("SELECT id,title,project_id projectId,status,priority,due FROM tasks WHERE workspace_id=?").all(workspaceId) as TaskRow[];
+async function getWorkspaceSnapshot(workspaceId: string) {
+  const db = await getDatabase();
+  const [projects, clients, tasks] = await Promise.all([
+    db.prepare("SELECT id,name,status,progress,due,client_id clientId FROM projects WHERE workspace_id=?").all<ProjectRow>(workspaceId),
+    db.prepare("SELECT id,company FROM clients WHERE workspace_id=?").all<{ id: string; company: string }>(workspaceId),
+    db.prepare("SELECT id,title,project_id projectId,status,priority,due FROM tasks WHERE workspace_id=?").all<TaskRow>(workspaceId),
+  ]);
   const today = new Date();
   const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   const weekIso = (() => { const d = new Date(today); d.setDate(d.getDate() + 7); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })();

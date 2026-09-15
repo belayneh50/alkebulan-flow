@@ -2,10 +2,31 @@ import { NextRequest } from "next/server";
 import { generateText } from "ai";
 import { google } from "@ai-sdk/google";
 import { z } from "zod";
-import { requireRequestSession,sameOrigin } from "@/lib/auth/session";
+import { requireRequestSession, sameOrigin } from "@/lib/auth/session";
 import { allowAttempt } from "@/lib/auth/rate-limit";
 import { getWorkspaceData } from "@/lib/db/queries";
 
-const message=z.object({role:z.enum(["assistant","user"]),text:z.string().max(500)});
-const schema=z.object({message:z.string().trim().min(1).max(500),history:z.array(message).max(8).default([])});
-export async function POST(request:NextRequest){if(!sameOrigin(request))return Response.json({error:"Invalid origin"},{status:403});const auth=requireRequestSession(request);if("error" in auth)return auth.error;if(!allowAttempt(`chat:${auth.session.id}`,20,60_000))return Response.json({error:"Please wait before asking again."},{status:429});const parsed=schema.safeParse(await request.json().catch(()=>null));if(!parsed.success)return Response.json({error:"Message must be between 1 and 500 characters."},{status:400});const data=getWorkspaceData(auth.session.workspaceId);const context={projects:data.projects.map(p=>({name:p.name,status:p.status,progress:p.progress,due:p.due})),tasks:data.tasks.map(t=>({title:t.title,status:t.status,priority:t.priority,due:t.due}))};if(process.env.GOOGLE_GENERATIVE_AI_API_KEY){try{const recent=parsed.data.history.map(item=>`${item.role}: ${item.text}`).join("\n");const result=await generateText({model:google(process.env.GEMINI_MODEL||"gemini-3.6-flash"),system:"You are Flow AI, a concise operations assistant for a small service business. Use only supplied workspace context, never invent contact details, and keep replies under 120 words.",prompt:`Workspace context: ${JSON.stringify(context)}\nRecent conversation:\n${recent}\nUser question: ${parsed.data.message}`});return Response.json({reply:result.text,provider:"gemini"})}catch(error){console.error("[ai/chat] Gemini request failed, serving deterministic fallback:",error);/* deterministic fallback below */}}const overdue=data.tasks.filter(t=>t.status!=="Done"&&t.priority==="High");const fmt=(iso:string)=>{try{return new Date(`${iso}T00:00:00`).toLocaleDateString("en",{month:"short",day:"numeric"})}catch{return iso}};const reply=overdue.length?`There are ${overdue.length} high-priority open tasks. Start with “${overdue[0].title}” (${fmt(overdue[0].due)}), then review ${data.projects.filter(p=>p.status==="Review").length} project currently awaiting approval.`:"Your workspace has no high-priority open tasks. Review the active project deadlines and choose the next smallest deliverable.";return Response.json({reply,provider:"fallback"})}
+const message = z.object({ role: z.enum(["assistant", "user"]), text: z.string().max(500) });
+const schema = z.object({ message: z.string().trim().min(1).max(500), history: z.array(message).max(8).default([]) });
+
+export async function POST(request: NextRequest) {
+  if (!sameOrigin(request)) return Response.json({ error: "Invalid origin" }, { status: 403 });
+  const auth = await requireRequestSession(request);
+  if ("error" in auth) return auth.error;
+  if (!allowAttempt(`chat:${auth.session.id}`, 20, 60_000)) return Response.json({ error: "Please wait before asking again." }, { status: 429 });
+  const parsed = schema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return Response.json({ error: "Message must be between 1 and 500 characters." }, { status: 400 });
+  const data = await getWorkspaceData(auth.session.workspaceId);
+  const context = { projects: data.projects.map(({ name, status, progress, due }) => ({ name, status, progress, due })), tasks: data.tasks.map(({ title, status, priority, due }) => ({ title, status, priority, due })) };
+  if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    try {
+      const recent = parsed.data.history.map(item => `${item.role}: ${item.text}`).join("\n");
+      const result = await generateText({ model: google(process.env.GEMINI_MODEL || "gemini-3.6-flash"), system: "You are Flow AI, a concise operations assistant for a small service business. Use only supplied workspace context, never invent contact details, and keep replies under 120 words.", prompt: `Workspace context: ${JSON.stringify(context)}\nRecent conversation:\n${recent}\nUser question: ${parsed.data.message}` });
+      return Response.json({ reply: result.text, provider: "gemini" });
+    } catch (error) { console.error("[ai/chat] Gemini request failed, serving deterministic fallback:", error); }
+  }
+  const overdue = data.tasks.filter(item => item.status !== "Done" && item.priority === "High");
+  const fmt = (iso: string) => { try { return new Date(`${iso}T00:00:00`).toLocaleDateString("en", { month: "short", day: "numeric" }); } catch { return iso; } };
+  const reply = overdue.length ? `There are ${overdue.length} high-priority open tasks. Start with “${overdue[0].title}” (${fmt(overdue[0].due)}), then review ${data.projects.filter(item => item.status === "Review").length} project currently awaiting approval.` : "Your workspace has no high-priority open tasks. Review the active project deadlines and choose the next smallest deliverable.";
+  return Response.json({ reply, provider: "fallback" });
+}

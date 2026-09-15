@@ -6,7 +6,7 @@ Alkebulan Flow is a portfolio-grade operations workspace for small agencies, con
 
 ## Current status
 
-The local core MVP is implemented and verified: relational SQLite persistence, secure credential auth, workspace roles, server-backed task workflows, validated client/project APIs, safe local uploads, and optional Gemini generation with deterministic fallback. Production PostgreSQL, hosted reset email, and object storage remain deployment-stage replacements.
+The core MVP is implemented and verified: local SQLite plus a Vercel-ready Neon PostgreSQL adapter, secure credential auth, workspace roles, server-backed task workflows, validated client/project APIs, local or private Blob uploads, and optional Gemini generation with deterministic fallback. Hosted reset email and distributed rate limiting remain later production hardening.
 
 ## Quick start
 
@@ -83,7 +83,8 @@ Checkboxes are marked complete only after implementation and verification.
 - [x] Structured ISO task due dates with one-time legacy migration, overdue highlighting, and due-date sorting
 - [x] Credential-free relational SQLite adapter and automatic seed
 - [x] Persistent client/project/task CRUD route handlers
-- [ ] Production PostgreSQL migration and hosted reset-email delivery
+- [x] Dual SQLite/Neon PostgreSQL persistence adapter with idempotent hosted schema and optional demo seed
+- [ ] Hosted reset-email delivery
 
 ### 4. Operations and AI
 
@@ -97,7 +98,8 @@ Checkboxes are marked complete only after implementation and verification.
 - [x] Deterministic no-key AI fallback served from a route handler
 - [x] Optional credential-backed Gemini structured generation
 - [x] Local file metadata persistence with size/type enforcement
-- [ ] Production durable object storage and content-signature scanning
+- [x] Private Vercel Blob storage adapter with authenticated preview/download/delete routes
+- [ ] Content-signature scanning
 - [x] Persistent notification read state with outside-click dismissal
 - [x] Dark-mode readability sweep: theme-aware badges, links, avatars, and charts in both modes
 
@@ -252,7 +254,7 @@ The concrete procedure for PostgreSQL, object storage, distributed rate limiting
 
 ## Deployment notes
 
-SQLite and local uploads are intended for a single-instance local demo, not serverless persistence. Before production use, connect PostgreSQL, replace local file writes with object storage, add distributed rate limiting, configure reset-email delivery, and set the Gemini key only if desired. No paid service, external AI call, or deployment has been created.
+Local development uses SQLite and filesystem uploads. When `DATABASE_URL` and `BLOB_READ_WRITE_TOKEN` are present, the same routes use Neon PostgreSQL and private Vercel Blob storage. Before handling real users, add distributed rate limiting and hosted reset-email delivery. The Gemini key remains optional and server-only.
 
 ## Privacy
 
