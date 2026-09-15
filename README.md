@@ -80,6 +80,7 @@ Checkboxes are marked complete only after implementation and verification.
 - [x] Client portfolio and project progress views
 - [x] Interactive Kanban board with cross-column task movement
 - [x] New-task workflow with validation
+- [x] Structured ISO task due dates with one-time legacy migration, overdue highlighting, and due-date sorting
 - [x] Credential-free relational SQLite adapter and automatic seed
 - [x] Persistent client/project/task CRUD route handlers
 - [ ] Production PostgreSQL migration and hosted reset-email delivery
@@ -87,7 +88,7 @@ Checkboxes are marked complete only after implementation and verification.
 ### 4. Operations and AI
 
 - [x] KPI cards, project-health signals, and responsive revenue chart
-- [x] Deadline visibility and unified activity feed
+- [x] Deadline visibility and unified activity feed (live due-this-week and overdue counts)
 - [x] File library and validated local upload handling
 - [x] Notification popover and attention signals
 - [x] Structured AI project brief contract
@@ -108,7 +109,7 @@ Checkboxes are marked complete only after implementation and verification.
 - [x] Production build passing
 - [x] Browser smoke test: dashboard, views, task creation, Kanban, AI brief
 - [x] Responsive verification at mobile and desktop widths
-- [ ] Automated accessibility scan
+- [x] Automated accessibility scan (axe-core WCAG 2.x A/AA runs in the test suite against the modal patterns)
 - [x] Keyboard-flow review
 - [x] Local security review for auth, uploads, authorization, and AI inputs
 
@@ -128,8 +129,8 @@ Checkboxes are marked complete only after implementation and verification.
 - [ ] Real-time collaboration
 - [ ] Stripe subscriptions
 - [ ] Email delivery
-- [ ] PDF/CSV export
-- [ ] Audit log
+- [x] PDF/CSV export (CSV downloads from Tasks/Projects/Clients with Excel-safe BOM, plus a print-ready PDF project report generated from the grounded AI brief with a copyable client update)
+- [x] Audit log (owner/admin-only view and API with actor, action, kind, and date-range filtering over the activity ledger)
 - [x] Dark mode with a header toggle, system-preference detection, localStorage persistence, and a no-flash init script
 
 ## Commands
@@ -203,21 +204,25 @@ The default model is `gemini-3.6-flash`, overridable with `GEMINI_MODEL` in `.en
 
 ### Recommended next steps
 
-1. Add production PostgreSQL and object-storage adapters behind the current repository interfaces.
+1. Execute the production PostgreSQL and object-storage migration per [`docs/MIGRATION.md`](docs/MIGRATION.md), including its verification checklist.
 2. Add hosted reset-email delivery and distributed rate limiting.
 3. Add an automated accessibility scan before a public production launch; the portfolio screenshot set is already captured and ordered in `docs/PORTFOLIO.md`.
 4. Deploy only after replacing local persistence and reviewing environment variables in the hosting dashboard.
 5. Consider remaining stretch work—realtime, billing, exports, and audit log—only after the hosted core passes the same gates. Dark mode is already shipped.
 
-## Latest verification — 2026-09-14
+## Latest verification — 2026-09-15
 
 - `npm run lint` — passed with 0 errors and 0 warnings
 - `npm run typecheck` — passed
-- `npm test` — 5 files, 20 tests passed, covering auth, role enforcement, client/project/task CRUD, AI protection, uploads, and persistence
-- `npm run build` — passed; 19 application/API routes generated successfully
-- Browser — desktop and 390×844 protected layouts rendered without console warnings/errors; the floating chat remained available on both `/app` and `/login`
-- End-to-end — authenticated, confirmed persisted operations data, received the offline workspace-priority chat response, logged out, and confirmed the global chat entry point remained visible
-- Security — the final secret audit confirmed the key is present only in ignored `.env.local`, absent from tracked files, and absent from Git history
+- `npm test` — 8 files, 37 tests passed, covering auth, role enforcement, client/project/task CRUD, AI protection, uploads, due-date validation and migration, modal accessibility (axe-core WCAG 2.x A/AA), CSV/report escaping, the audit log, and the weekly digest
+- `npm run build` — passed; 24 application/API routes generated successfully, including the new `/api/audit` and `/api/ai/digest`
+- Browser — desktop and mobile protected layouts render without console errors; the floating chat, dark mode, audit log filters, workspace search, and digest card were exercised end-to-end in the running app
+- AI — live Gemini replies verified for chat, grounded project briefs, and the weekly digest (provider badge confirms the source); deterministic fallbacks verified truthful
+- Security — the API key remains only in ignored `.env.local`; audit log is role-enforced server-side; uploads stay workspace-scoped with no-sniff and inline-only image/PDF preview
+
+## Production migration
+
+The concrete procedure for PostgreSQL, object storage, distributed rate limiting, and hosted reset email lives in [`docs/MIGRATION.md`](docs/MIGRATION.md). The production roadmap boxes stay unchecked until those steps are executed and verified against real infrastructure.
 
 ## Portfolio proof pack
 
@@ -232,6 +237,11 @@ The default model is `gemini-3.6-flash`, overridable with `GEMINI_MODEL` in `.en
 - **Notifications** — added outside-click dismissal; read-state persistence via `PATCH /api/notifications` and SQLite `read_at` re-verified across reload
 - **Dark mode** — new: theme toggles on login and dashboard, `prefers-color-scheme` default, persisted choice, no-flash init script, `suppressHydrationWarning` to keep hydration clean, theme-aware chart tokens, and a full dark-readability sweep (inputs, badges, links, avatars, nav, promo cards) with measured contrast of 7.1:1+ in light and 9.8:1+ in dark on primary actions
 - **Completed interaction audit** — New client now posts through the API; client menus provide Edit/Delete; task cards open a full editor with status, priority, assignee, and due-date controls; images/PDFs preview in-app while every uploaded file exposes Download and confirmed Delete
+- **Exports & client-ready reporting** — one-click CSV downloads for tasks, projects, and clients (RFC-4180 escaping, Excel-safe UTF-8 BOM, ISO dates); the AI assistant turns any grounded brief into a print-ready PDF report (summary, risks, next actions, client update, auto-opens the print dialog) and copies the client update to the clipboard; unit-tested escaping and HTML safety
+- **Audit log** — owner/admin-only view and API over the activity ledger with server-side filtering by actor, action, kind, and date range (debounced, 200-entry window, role-enforced 403 for team); covered by integration tests
+- **Weekly AI digest** — new `/api/ai/digest` generates a Monday-morning priorities digest (headline + up to six attention items) grounded in all live projects and tasks, with strict Zod validation, JSON-mode prompting with fence-stripping, and a truthful deterministic fallback; surfaced as an Overview card with refresh, PDF download, and copy actions; verified live with Gemini
+- **Production migration guide** — `docs/MIGRATION.md` documents schema conversion, adapter swap points, upload-to-object-storage mapping, env vars, and the verification checklist; the production roadmap boxes remain honestly unchecked until executed
+- **Structured due dates & dialog accessibility** — ISO task due dates with a one-time legacy migration, overdue highlighting, due-date sorting, live deadline KPIs, and date pickers in both task modals; modals and the AI slide-over now close on Escape and backdrop click, trap Tab with initial focus on the first field and focus restore on close; the floating chat was re-layered below dialogs; an automated axe-core WCAG 2.x A/AA scan covers the modal patterns (6 new tests, 28 total)
 - **Activity integrity** — client create/update/delete, task create/update/delete, and file upload/delete are persisted with the signed-in actor and reflected immediately in the Activity view
 - **File retrieval security** — authenticated workspace-scoped file serving uses exact stored metadata, inline preview only for images/PDFs, attachment delivery for other types, no-sniff headers, and owner/admin deletion
 - **Quality gates re-run after all changes** — lint clean, typecheck clean, 20/20 tests passing, production build passing
